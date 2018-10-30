@@ -18,8 +18,6 @@ pcpr2 <- function(subset.instants = F) {
     !is.na(meta$coffee.brew) & meta$brew.method != "Instant"
     }
   
-  #samples <- !is.na(meta$coffee.brew) & meta$brew.method != "Instant"
-  
   #features detected in more than 2 samples only
   X_DataMatrix <- ints[samples, ]
   filt <- colSums(X_DataMatrix > 1) > 2
@@ -53,22 +51,12 @@ pcpr2 <- function(subset.instants = F) {
   eigenValues    <- eigenData$values
   eigenVecMatrix <- eigenData$vectors
   
-  # Replicate interest factors data and bind rowwise
-  #AAA <- Z_Meta[rep(1 : Z_MetaRowN, pc_n), ]
-  
-  # Stack eigenvectors and bind to interest factors
-  #pc_data_matrix <- c(eigenVecMatrix[, 1:pc_n ])
   pc_data_matrix <- eigenVecMatrix[, 1:pc_n ]
-  #Data <- cbind(pc_data_matrix, AAA)
-  
-  # Make a dataframe for each PC and put in list
-  #dflist <- apply(eigenVecMatrix[, 1:pc_n], 2, function(x) cbind(pc_data_matrix = x, Z_Meta))
   
   # Convert categorical variables to factors. Put them in varlist
   varlist <- c("plate", "caffeine", "bean.type", "roast", "brew.method")
   Z_Meta <- Z_Meta %>% mutate_at(vars(varlist), as.factor)
-  
-  #DataCol <- ncol(dflist[[1]])
+
   DataCol <- Z_MetaColN +1
   
   # Run a linear model with the with the eigenvector as the response
@@ -93,11 +81,8 @@ pcpr2 <- function(subset.instants = F) {
   
   # apply model to n data frames where n = number of PCs
   type3mat <- apply(pc_data_matrix, 2, type3matrows) %>% t
-  #ll <- lapply(dflist, type3matrows)
-  #type3mat           <- do.call(rbind, ll) 
   colnames(type3mat) <- c(ColNames, "SumSqResiduals")
   #type3mat[, DataCol]
-  
   
   # Calculate ST_ResidualR2 and give colnames
   ST_ResidualR2 <- cbind(1 - (type3mat[, DataCol]), type3mat[, DataCol])
