@@ -63,10 +63,8 @@ pcpr2 <- function(subset.instants = F) {
   type3matrows <- function(f) {
     TotSumSq <- var(f) * (Z_MetaRowN - 1)
     
-    #Edit the linear model with your factors
-    fit <- lm(f ~ plate + run.order + caffeine + bean.type + 
-                  roast + brew.method, 
-              data = Z_Meta)
+    # Use all interest factors
+    fit <- lm(f ~ ., data = Z_Meta)
     
     # Use type III anova to get the sums of squares for each factor
     # Added singular.ok argument to suppress error message
