@@ -1,23 +1,23 @@
-#PCA and exploratory analysis (this script to be put in correct order)
-#Original coffee metadata was imported from:
-#\\inti\BMA\Coffee Project\NCI\Sample lists\Masked Batch List of coffee samples_data files.xlsx
-#put in peak table order for match with intensity data
+# Exploratory analysis of coffee brews. Data location:
+# \\inti\BMA\Coffee Project\NCI\Sample lists\Masked Batch List of coffee samples_data files.xlsx
+# metadata needs to be in feature table order for match with intensity data
 library(tidyverse)
 library(MetabolAnalyze)
+library(sparcl)
 
-# Exploratory analysis ---------------------------------------------------------------------------
-
-#read in brew intensity data and metadata (200 obs incl blanks and QCs)
-ints <- read_csv("Brew PT Feb 2015.csv", skip=8) %>% select(2:201) %>% t
-#write.csv(ints, "Peak table brew study.csv")
-
-#meta <- read_csv("Brew labels pt order feb plate.csv")
+ft <- read_csv("Brew PT Feb 2015.csv", skip=8)
 meta <- read_csv("Brew meta pt order march.csv")
 
-#define function to prep data and do PCA with log and/or scaling. Also returns table of PC scores.
-brew.explore <- function(samples=c(2:201), logtr = TRUE, ...) {
+# Function to prep data and do PCA with log and/or scaling. Also returns table of PC scores.
+brew.explore <- function(logtr = T, ...) {
+
+  ints <- ft %>% select(ends_with("(raw)")) %>% t
+  meta$replicate <- as.factor(meta$replicate)
   
-  #exploratory analysis. First define metadata and intensities to be used
+  #write.csv(ints, "Peak table brew study.csv")
+  
+  # Subset metadata and intensities to be used (remove blanks for PCA)
+  samples <- meta$sample.type != "Blank"
   mat <- ints[samples, ]
   
   #replace matrix zeros or NAs with 1s
@@ -36,10 +36,11 @@ brew.explore <- function(samples=c(2:201), logtr = TRUE, ...) {
   #abline(v=0, h=0, lty=3)
   
   df <- data.frame(meta[ samples, ], pc$x)
-  p <- ggplot(df[, samples], aes(x=PC1, y=PC2, colour=replicate.code, shape=caffeine)) + 
+  p <- ggplot(df[, samples], aes(x=PC1, y=PC2, colour=brew.method)) + 
     geom_text(aes(label = replicate)) + 
     #geom_point() + 
-    theme_bw() + geom_hline(yintercept = 0, colour="grey") + 
+    theme_bw() + 
+    geom_hline(yintercept = 0, colour="grey") + 
     geom_vline(xintercept = 0, colour="grey")
   print(p)
   
@@ -47,39 +48,36 @@ brew.explore <- function(samples=c(2:201), logtr = TRUE, ...) {
   return(data.frame(df2))
   
 }
+output <- brew.explore(logtr = T, type = "unit")
 
-#Run function removing blanks at run index 67, etc. Scaling types are "unit", "pareto", "none". 
-result <- brew.explore(samples=c(-67,-76,-(177:182)), logtr = T, type = "unit")
+# Function to perform hierarchical clustering
+brew.cluster <- function(logtr = T, ...) {
 
-brew.explore(logtr = T, type = "unit")
-
-#Define function to perform hierarchical clustering
-brew.cluster <- function(logtr = TRUE, ...) {
-  
-  #exploratory analysis. First define metadata and intensities to be used
-  mat <- t(ints) 
+  mat <- ft %>% select(ends_with("(raw)")) %>% t
   
   #log transform and scale
-  if(logtr == T) mat <- log2(mat) else mat <- mat 
+  if(logtr == T) mat <- log2(mat) else mat
   scalemat <- scaling(mat, ...)
   
   hh1 <- hclust(dist(scalemat))
-  caffeine_as_numeric = as.numeric(factor(meta$brew.method))
-  ColorDendrogram(hh1, y=caffeine_as_numeric, branchlength=38, labels=meta$brew.method)
+  brew_method <- as.numeric(factor(meta$brew.method))
+  ColorDendrogram(hh1, y=brew_method, branchlength=38, labels=meta$brew.method)
   
 }
 brew.cluster(type="unit")
 
-# Total usable signal --------------------------------------------------------------------------
+# Total usable signal ----
 
 #Get total usable signal of the selected coffees
+ints <- ft %>% select(ends_with("(raw)")) %>% t
 ints.filt <- ints[meta$selected == 1, ]
 totalints <- rowSums(ints.filt)
-totalints <- data.frame(meta[selected == 1, ], totalint = (as.numeric(rowSums(ints.filt)/1000000) ))
+totalints <- data.frame(meta[meta$selected == 1, ], 
+             totalint = (as.numeric(rowSums(ints.filt)/1000000) ))
 
-#Plot boxplot of intensities by coffee brew. Set margins and plot for 2 figures
-par(mar=c(2, 2, 3, 2)) 
-par(mfrow=c(2,1))
+# Plot boxplot of intensities by coffee brew. Set margins and plot for 2 figures
+par(mar = c(2,2,3,2)) 
+par(mfrow = c(2,1))
 
 library(gplots)
 boxplot2(totalints$totalint ~ totalints$brew.method, main = "Untargeted analysis (all features)",
@@ -88,9 +86,7 @@ boxplot2(totalints$totalint ~ totalints$brew.method, main = "Untargeted analysis
 t.test(totalints$totalint ~ totalints$brew.method, 
        subset = totalints$brew.method == "Instant" | totalints$brew.method == "Espresso")
 
-
-
-# Feature counts ---------------------------------------------------------------------------------
+# Feature counts ----
 brew <- bind_cols(meta, data.frame(ints))
 
 #find number of features present in X coffees
@@ -100,7 +96,8 @@ nfeatures <- colSums(brew.rep1 > 1)
 hist(nfeatures, xlab="No. coffees", ylab="No. features", breaks=100, col="lightblue")
 plot(ecdf(nfeatures), xlab="No. coffees", ylab="No. features")
 
-#Top features: read in intensity data and metadata
+# Top features ----
+# NOTE: haven't fixed code since inserting proper NAs into metadata
 
 #subset intensity data for selected observations
 mat  <- ints[ which(meta$selected == 1), ]
@@ -175,30 +172,30 @@ bmlist  <- top.feat(meta, attribute="bmID")
 
 rbind(unlist(caflist), unlist(btlist), unlist(bmlist))
 
-#---------------------------------------------------------------------------------------------
-
-#volcano plots, Normal v decaf and Arabica vs blend
-#get logical vectors for the 4 groups under study. Check with sum(normal==T)
+# Volcano plots----
+# The following code is old and may not work
+# Normal v decaf and Arabica vs blend
+# get logical vectors for the 4 groups under study. Check with sum(normal==T)
 normal  <- meta$caffeine  == "Caf"     & meta$selected == T #n=60
 decafs  <- meta$caffeine  == "Decaf"   & meta$selected == T #n=16
 arabica <- meta$bean.type == "Arabica" & meta$selected == T #n=38
 blend   <- meta$bean.type == "Blend"   & meta$selected == T #n=31
 
-#normal/decaf fold changes and t-test
+# normal/decaf fold changes and t-test
 fc.caffeine <- apply(ints[normal, ], 2, mean) / apply(ints[decafs, ], 2, mean)
 tt.caffeine <- apply(log2(ints), 2, function(x) t.test(x[normal], x[decafs]))
 praw <- sapply(tt.caffeine, "[", c(3)) %>% unlist
 padj <- p.adjust(praw, method="BH")
 plot(log2(fc.caffeine), log10(padj), ylim=c(0, -40))
 
-#Arabica/blend fold changes and t-test
+# Arabica/blend fold changes and t-test
 fc.beantype <- apply(ints[arabica, ], 2, mean) / apply(ints[blend, ], 2, mean)
 tt.beantype <- apply(log2(ints), 2, function(x) t.test(x[arabica], x[blend]))
 praw2 <- sapply(tt.caffeine, "[", c(3)) %>% unlist
 padj2 <- p.adjust(p, method="BH")
 plot(log2(fc.beantype), log10(padj), ylim=c(0, -40))
 
-#could also plot feature boxplots eg
+# Could also plot feature boxplots eg
 cafeffect <- (meta$caffeine == "Caf" | meta$caffeine == "Decaf") & meta$selected == T
 
 
