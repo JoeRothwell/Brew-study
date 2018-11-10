@@ -3,8 +3,8 @@ ints <- read.csv("Brew PT Feb 2015.csv", skip = 8, row.names=1)
 meta <- read.csv("Brew meta pt order march.csv")
 
 # Subset intensity data for selected observations
-mat  <- t(ints[, which(meta$selected==1)])
-meta <- meta[meta$selected==1, ]
+mat  <- t(ints[, which(meta$selected == 1)])
+meta <- meta[meta$selected == 1, ]
 
 # Loop through each feature getting the highest median
 topfeat <- function(cofvec){
@@ -42,9 +42,9 @@ dark     <- topfeat(meta$roast == "Dark")
 allcofs  <- cbind(all, normal, decaf, arabica, blend, boiled, coldbrew, espresso, frpress, 
              instant, kcup, percol, light, med, dark)
 
-#------------------------------------------------------------------------------
-#Alternative: using a loop in a loop to subset coffee groups. Loop through coffee groups and features
-#First get ranks for coffee attributes of interest
+# Alternative:---- 
+# A loop in a loop to subset coffee groups. Loop through coffee groups and features
+# First get ranks for coffee attributes of interest
 library(dplyr)
 meta <- meta %>% filter(selected == 1) %>% mutate(CafID = dense_rank(caffeine), 
             btID = dense_rank(bean.type), bmID = dense_rank(brew.method), allID = 1)

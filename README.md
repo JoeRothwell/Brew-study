@@ -1,26 +1,13 @@
----
-output: html_document
----
-# Brew study
-### Analysis of commonly consumed coffee brews by metabolomics
-#### 1. Exploratory analysis of untargeted data
-PCA and PCPR2 are performed on all features detected by untargeted metabolomics. PCA visualises samples and QCs on a scores plot after removal of 6 blanks. PCPR2 is performed on selected samples only (one replicate from each pair), and on the subset of filter coffees only to remove the influence of brew method.
-In `Top_features.R`, The 10 highest intensity features are found for coffee groups of interest.
+# Coffee brew study
 
-#### 2. Targeted analysis of known coffee compounds
-Data were extracted from raw data files with ProFinder. A custom PCDL was used as a target for the extraction of 120 coffee compounds found in online databases. Once the data was extracted, each compound group was checked for poorly drawn peaks. Bad peaks were redrawn or removed if judged to be noise. Blanks were checked to make sure extracted peaks were not spurious. Any judged to be noise only were deleted.
+This repository contains scripts for the analysis of data from the coffee brew metabolomics study.
 
-Selected samples, rejected samples and blanks were extracted (182 samples). Pooled QCs were extracted separately for calculation of CVs.
+`Boxplots_coffee_features.R` generates boxplots of intensity distributions for spectral features found in coffee brews.
 
-88 compound groups were extracted from the coffee compounds initially collected. 17 were rejected for the following reasons, leaving 71.
+`Brew_exploratory.R` is an exploratory analysis of multivarate metabolomics data, performing a PCA to determine the main sources of variation in the data.
 
-* 1 due to detector saturation: caffeine
-* 2 due to not of interest: Ochratoxin, 2 isomers
-* 2 due to high single ion compounds: 2-Ac-5-Methylthiophene, 2-Me-5-(1-propenyl)pyrazine
-* 8 due to high levels in blanks: Kahweol, 3-(3,4-dihydroxyphenyl)-2-propenoic acid, Linoleic acid, 4-Ethyl-1,2-dimethoxybenzene, Campestanol, Trimethylamine, Feruloylquinic acid (3)
-* 1 due to too many missing peaks: Liberine
-* 1 due to mistaken identity: Trigonelline (RT is around 0.7 min)
-* 3 due to high CV in pooled QCs: diacetin, Nicotinic acid, Phenylalanine
+`Brew_targeted_analysis.R` is an analysis of known compounds in coffee brews, for all brews and subset by filter coffees only. The major components of variaton are determined and the compounds which most load on to these.
 
-##### Update at June 2018: More compounds excluded
-File was exported from ProFinder as "export detailed csv". Due to the commas in compound names, it was difficult to parse the csv to be read in directly. Therefore, the csv was manually manipulated in Excel to correct the shifted rows. Codes were given to each extracted compound eg cmpd_152_3.11. Excel file location: `\\Inti\BMA\Coffee project NCI\Targeted analysis 88 cmpds Feb 15.xlsx`. The "cleaned" sheet was exported to the R project directory.
+`Top_features.R` is a function to find the most intense features in different brew subgroups.
+
+`PCPR2_coffee.R` and `PCPR2_vectorised` perform the PCPR2 technique on untargeted data.
