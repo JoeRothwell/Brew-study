@@ -1,9 +1,10 @@
 # Coffee brew study
 This repository contains scripts for the analysis of data from the coffee brew metabolomics study.
-
 ![](brewpca.png)
 
 _Scores plot of principal component analysis of intensities of 64 known compounds measured in a range of coffee brews._
+
+Description of files:
 
 `Boxplots_coffee_features.R` generates boxplots of intensity distributions for spectral features found in coffee brews.
 
