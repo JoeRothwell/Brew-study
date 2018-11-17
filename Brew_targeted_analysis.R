@@ -66,7 +66,7 @@ brew.pca <- function(filter = F, normalise = F) {
   
   # normalize to total intensity (normalised matrix needs transposing)
   normat <- apply(mat, 1, function(x) x/sum(x))
-  logmat <- if(normalise == T) t(log(normat)) else log(mat)
+  logmat <- if(normalise == T) t(log2(normat)) else log2(mat)
 
   # Calculate PCs and specify coffee groups
   pcs <- prcomp(logmat, scale. = T)
@@ -78,8 +78,10 @@ brew.pca <- function(filter = F, normalise = F) {
   # plot scores and loadings PC1 vs PC2, base R (not used, see old file version)
   # with pca3d for publication (first making data frame from pc object). Easier to show groups.
   # plots copied to clipboard at 941x638 px for draft
-  brew.scores <- pca2d(pcs, components = 1:2, group = grps, legend = "right")
+  plt <- pca2d(pcs, components = 1:2, group = grps, axe.titles = 
+                         c("Score on PC1", "Score on PC2"))
   box(which = "plot", lty = "solid")
+  legend("bottomright", plt$groups, col=plt$colors, pch=plt$pch)
 
   # Calculate contributions. Get absolute values of rotation and convert to proportions, join names, plot
   # do not use absolute values to get positive and negative contributions
