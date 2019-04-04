@@ -1,4 +1,5 @@
 # Development of PCPR2 script
+# for loops have been removed and code vectorised where possible
 
 # Load the data in the X matrix containing NMR spectra and Z matrix containing the list of explanatory variables of interest
 library(MetabolAnalyze)
@@ -19,7 +20,6 @@ filt <- colSums(X_DataMatrix > 1) > 2
 
 #subset both dimensions. Leaves 3626 and 3572 features for full and subset data.
 X_DataMatrix <- log2(ints[samples, filt])
-#X_DataMatrix <- log2(ints)[samples, -3667]
 
 #sum(apply(X_DataMatrix, 2, var) == 0)
 
@@ -35,7 +35,7 @@ X_DataMatrixCentered = scale(X_DataMatrix, center = TRUE, scale = FALSE)
 X_DataMatrixScaled = scaling(X_DataMatrixCentered, type = "pareto")
 
 #Do a PCA to check the distribution of variability explained
-#brew.pca <- prcomp(X_DataMatrixScaled, scale. = F)
+brew.pca <- prcomp(X_DataMatrixScaled, scale. = F)
 #summary(brew.pca)
 
 # Center the data / Scale the data, edit the parameter "pareto" or "unit" of scaling according to your need
@@ -44,113 +44,73 @@ Z_MetaRowN <- nrow(Z_Meta)
 Z_MetaColN <- ncol(Z_Meta)
 ColNames   <- names(Z_Meta)
 
-# Obtain eigenvectors
-pct_threshold = .8 # Amount of variability desired to be explained, to be edited with your preferences
-X_DataMatrixScaled_transposed = t(X_DataMatrixScaled)
-Mat2 <- X_DataMatrixScaled %*% X_DataMatrixScaled_transposed
-eigenData <- eigen(Mat2)
-eigenValues <- eigenData$values
-ev_n <- length(eigenValues)
-eigenVectorsMatrix <- eigenData$vectors
+# get number of PCs for threshold
+pct_threshold <- 0.8 # Amount of variability desired to be explained
+sumpca <- summary(brew.pca)$importance
+pc_n <- which(sumpca[3, ] >= pct_threshold) %>% min
 
-eigenValuesSum = sum(eigenValues)
-percents_PCs <- eigenValues /eigenValuesSum
-my_counter_2 <- 0
-my_sum_2 <- 1
+# Get eigenvectors and eigenvalues
+X_DataMatrixScaled_t <- t(X_DataMatrixScaled)
+symMat <- X_DataMatrixScaled %*% X_DataMatrixScaled_t
+eigenData      <- eigen(symMat)
+eigenValues    <- eigenData$values
+eigenVecMatrix <- eigenData$vectors
 
-# Get number of PCs for threshold
-for (i in ev_n:1){
-  my_sum_2 = my_sum_2 - percents_PCs[i]
-  if ((my_sum_2) <= pct_threshold ){
-    my_counter_2 <- my_counter_2 + 1
-  }
-}
-
-if (my_counter_2 < 3) pc_n <- 3 else pc_n <- my_counter_2
-
-# Stack Eigenvectors in one column
-pc_data_matrix <- matrix(data = 0, nrow = Z_MetaRowN * pc_n, ncol = 1)
-mycounter <- 0
-for (i in 1:pc_n){
-  for (j in 1:Z_MetaRowN){
-    mycounter <- mycounter + 1                    
-    pc_data_matrix[mycounter,1] = eigenVectorsMatrix[j,i]
-  }
-}
-
-# Repeat metadata vertically n times for PCs and bind to eigenvectors
-AAA <- Z_Meta[rep(1 : Z_MetaRowN,pc_n), ]
-Data <- cbind(pc_data_matrix, AAA)
+pc_data_matrix <- eigenVecMatrix[, 1:pc_n ]
 
 #Perform linear multiple regression models on each eigenvector with factors of interest as explanatory variables
 #Categorical variables should be processed by as.factor, whereas continuous variables should not. 
 #To be edited with your factors names
 
-Z_Meta$plate <- as.factor(Z_Meta$plate)
-#Z_Meta$sample.type <- as.factor(Z_Meta$sample.type)
-#Z_Meta$coffee.brew <- as.factor(Z_Meta$coffee.brew)
-Z_Meta$caffeine <- as.factor(Z_Meta$caffeine)
-Z_Meta$bean.type <- as.factor(Z_Meta$bean.type)
-Z_Meta$roast <- as.factor(Z_Meta$roast)
-Z_Meta$brew.method <- as.factor(Z_Meta$brew.method)
+# Convert categorical variables to factors. Put them in varlist
+varlist <- c("plate", "caffeine", "bean.type", "roast", "brew.method")
+Z_Meta <- Z_Meta %>% mutate_at(vars(varlist), as.factor)
 
-DataCol <- ncol(Data)
+DataCol <- Z_MetaColN +1
 # Generate Anova type 3 sums of squares for each component and bind rowwise
 # make emtpy matrices
 type3mat <- matrix(data = 0, nrow = pc_n, ncol = DataCol ) 
 ST_ResidualR2 <- matrix(data = 0, nrow = pc_n, ncol = 2)   
 
-# Run type III ANOVA on each PC
-for (i in 1:pc_n){  
-  y <- ((i-1) * Z_MetaRowN) + 1
-  yy <- (i-1) * Z_MetaRowN
-  TotSumSq <- var(Data[y : (yy + Z_MetaRowN), 1]) * (Z_MetaRowN - 1)
+# Run a linear model with the with the eigenvector as the response
+type3matrows <- function(f) {
+  TotSumSq <- var(f) * (Z_MetaRowN - 1)
   
-  #Edit the linear model with your factors
-  Model <- lm(pc_data_matrix ~ plate + run.order + caffeine + bean.type + 
-                roast + brew.method, Data[y:(yy + Z_MetaRowN), ])
-  #Note: added singular.ok argument to suppress error message
-  AnalysisVariance <- Anova(Model, type=c(3), singular.ok = T)
-  SumSq     <- AnalysisVariance[1] 
+  # Use all interest factors
+  fit <- lm(f ~ ., data = Z_Meta)
   
-  # Populate ST_ResidualR2 and give colnames
-  Residuals <- SumSq[DataCol + 1, ] 
-  RR <- Residuals/TotSumSq
-  R2 = 1 - RR
-  ST_ResidualR2[i,]   <- c(R2, RR)
-  ST_ResidualR2_Names <- c("ST_R2", "ST_Residuals")
-  colnames(ST_ResidualR2) = ST_ResidualR2_Names
-  
-  # Populate typeIII matrix from sums of squares for each factor and give colnames
-  for (j in 1:(DataCol)){
-    type3mat[i, j]     <- as.numeric(SumSq[j + 1, 1])
-    colnames(type3mat) <- c(ColNames, "SumSqResiduals")
-  } 
+  # Use type III anova to get the sums of squares for each factor
+  # Added singular.ok argument to suppress error message
+  AnovaTab   <- Anova(fit, type=3, singular.ok = T)
+  SumSq      <- AnovaTab[1] 
+  Residuals  <- SumSq[DataCol + 1, ] 
+  RR         <- Residuals/TotSumSq
+  R2         <- 1 - RR
+  ST_ResidualR2Row  <- c(R2, RR)
+  type3matRow <- SumSq[1:DataCol + 1, 1]
 }
 
-#Create partial R2 matrix and populate from typeIII matrix
-partialR2Matrix <- matrix(data = 0, nrow = pc_n, ncol = DataCol-1 )
-for (i in 1:pc_n){
-  for (j in 1:(DataCol-1)){
-    partialR2Matrix[i,j] <- type3mat[i,j] / (type3mat[i, DataCol] + type3mat[i,j]) 
-  }
-}
+# apply model to n data frames where n = number of PCs
+type3mat <- apply(pc_data_matrix, 2, type3matrows) %>% t
+colnames(type3mat) <- c(ColNames, "SumSqResiduals")
 
-partialR2MatrixWtProp <- matrix(data = 0, nrow = pc_n, ncol = DataCol) 
-for (i in 1:pc_n){
-  weight = eigenValues[i]/sum(eigenValues[1 : pc_n]) 
-  for (j in 1:DataCol-1){
-    partialR2MatrixWtProp[i, j] <- partialR2Matrix[i, j] * weight
-    partialR2MatrixWtProp[i, DataCol] <- ST_ResidualR2[i, 1] * weight 
-  }
-}
+# Calculate ST_ResidualR2 and give colnames
+ST_ResidualR2 <- cbind(1 - (type3mat[, DataCol]), type3mat[, DataCol])
+colnames(ST_ResidualR2) <- c("ST_R2", "ST_Residuals")
 
-pR2Sums <- colSums(partialR2MatrixWtProp)*100 
-plotnames = c( ColNames, "R2")
+# Make partial R2 matrix and populate from typeIII matrix
+makepartialmat <- function(x) x / (x + type3mat[, DataCol])
+partialR2mat   <- apply(type3mat[ , -DataCol], 2, makepartialmat)
+
+# Apply eigenvalues as weights
+eigenValues <- eigenData$values[1: pc_n]
+weight     <- eigenValues/sum(eigenValues) 
+partialR2MatWtProp <- cbind(partialR2mat, ST_ResidualR2[, 1])*weight
+colnames(partialR2MatWtProp) <- NULL
+pR2Sums <- colSums(partialR2MatWtProp) * 100
+
 bp <- barplot(pR2Sums, xlab = "", ylab = "Weighted Rpartial2", ylim = c(0,70), col = "red", 
-              las=2, main = paste("Original PCPR2 simp. n =", ev_n))
-axis(1, at = bp, labels = plotnames, cex.axis = 0.8, las=2) 
+              las=2, cex.main = 0.8, main = paste("Original PCPR2 vectorised n =", Z_MetaRowN))
+axis(1, at = bp, labels = c(ColNames, "R2"), cex.axis = 0.8, las=2) 
 rounded <- round(pR2Sums, 3)
 text(bp, pR2Sums, labels = rounded, pos=3, cex = 0.8)
-
-output <- data.frame(plotnames, pR2Sums)
