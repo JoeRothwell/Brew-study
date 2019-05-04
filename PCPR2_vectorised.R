@@ -33,7 +33,7 @@ pcpr2 <- function(subset.instants = F) {
   X_DataMatrixScaled = scaling(X_DataMatrixCentered, type = "pareto")
   
   # Do a PCA to check the distribution of variability explained
-  brew.pca <- prcomp(X_DataMatrixScaled, retx = F, scale. = F)
+  #brew.pca <- prcomp(X_DataMatrixScaled, retx = F, scale. = F)
   
   Z_MetaRowN <- nrow(Z_Meta)
   Z_MetaColN <- ncol(Z_Meta)
@@ -41,8 +41,8 @@ pcpr2 <- function(subset.instants = F) {
   
   # get number of PCs for threshold
   pct_threshold <- 0.8 # Amount of variability desired to be explained
-  sumpca <- summary(brew.pca)$importance
-  pc_n <- which(sumpca[3, ] >= pct_threshold) %>% min
+  #sumpca <- summary(brew.pca)$importance
+  #pc_n <- which(sumpca[3, ] >= pct_threshold) %>% min
   
   # Get eigenvectors and eigenvalues
   X_DataMatrixScaled_t <- t(X_DataMatrixScaled)
@@ -50,6 +50,11 @@ pcpr2 <- function(subset.instants = F) {
   eigenData      <- eigen(symMat)
   eigenValues    <- eigenData$values
   eigenVecMatrix <- eigenData$vectors
+  percents_PCs   <- eigenValues/sum(eigenValues)
+  
+  # Get number of PCs required for threshold
+  my_counter_2 <- sum(1 - cumsum(rev(percents_PCs)) <= 0.8)
+  if(my_counter_2 > 3) pc_n <- my_counter_2 else pc_n <- 3
   
   pc_data_matrix <- eigenVecMatrix[, 1:pc_n ]
   
