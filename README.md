@@ -1,6 +1,9 @@
 # Coffee brew study
+
 This repository contains scripts for the analysis of data from the coffee brew metabolomics study.
-![](brewpca.png)
+<p align="center">
+<img src="brewpca.png">
+</p>
 
 _Scores plot of principal component analysis of intensities of 64 known compounds measured in a range of coffee brews._
 
@@ -14,4 +17,4 @@ Description of files:
 
 `Top_features.R` is a function to find the most intense features in different brew subgroups.
 
-`PCPR2_coffee.R` and `PCPR2_vectorised.R` perform the PCPR2 technique on untargeted data.
+`PCPR2_coffee.R` performs the PC-PR2 technique on untargeted data.
