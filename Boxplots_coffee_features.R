@@ -62,3 +62,37 @@ ggsave("Bar brew method vs roast.png", height= 100, width=200, units="mm")
 
 library(latticeExtra)
 #levelplot(log10(value) ~ Var1 + Var2, data=cfmelt)
+
+# Alluvial plot of coffee characteristics
+
+library(tidyverse)
+coffees <- read.csv("Brew meta pt order march.csv")
+
+cof <- coffees %>% filter(selected == 1) %>% 
+  select(caffeine, brew.method, roast, bean.type)
+
+cof$roast <- fct_explicit_na(cof$roast, na_level = "Unknown")
+cof$bean.type <- fct_explicit_na(cof$bean.type, na_level = "Unknown")
+
+summ <- cof %>% group_by(caffeine, bean.type, roast, brew.method) %>%
+  summarise(freq = n())
+
+# Define colours
+A_col <- "skyblue1"
+B_col <- "hotpink"
+C_col <- "hotpink"
+alpha <- 0.7 # transparency value
+fct_levels <- c("A","C","B")
+
+# Plot with alluvial
+library(alluvial)
+alluvial(summ[, 1:4], freq = summ$freq, gap.width=0.05, blocks = T,
+         col= c(rep(A_col, 24), rep(B_col, 6)),
+         border = c(rep(A_col, 24), rep(B_col, 6)),
+         cw = 0.1, xw = 0.2, #alpha = 0.7,
+         axis_labels = c("Caffeine", "Bean type", "Roast", "Brew method")
+)
+
+
+
+
