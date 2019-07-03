@@ -1,17 +1,17 @@
-# Exploratory analysis of coffee brews. Data location:
+# Exploratory analysis of coffee brews. Metadata needs to be in feature table order
 # \\inti\BMA\Coffee Project\NCI\Sample lists\Masked Batch List of coffee samples_data files.xlsx
-# metadata needs to be in feature table order for match with intensity data
-library(tidyverse)
-library(MetabolAnalyze)
-library(sparcl)
-
-ft <- read_csv("Brew PT Feb 2015.csv", skip=8)
-meta <- read_csv("Brew meta pt order march.csv")
 
 # Function to prep data and do PCA with log and/or scaling. Also returns table of PC scores.
 brew.explore <- function(logtr = T, ...) {
-
+  
+  library(tidyverse)
+  library(MetabolAnalyze)
+  library(sparcl)
+  
+  ft <- read_csv("Brew PT Feb 2015.csv", skip=8)
   ints <- ft %>% select(ends_with("(raw)")) %>% t
+  
+  meta <- read_csv("Brew meta pt order march.csv")
   meta$replicate <- as.factor(meta$replicate)
   
   #write.csv(ints, "Peak table brew study.csv")
@@ -31,12 +31,10 @@ brew.explore <- function(logtr = T, ...) {
   scalemat <- scaling(mat, ...)
   
   #calculate PCA and plot scores
-  pc <- prcomp(scalemat, scale. = F)
-  #plot(pc$x[, 1], pc$x[, 2], xlab = "Scores on PC1", ylab = "Scores on PC2")
-  #abline(v=0, h=0, lty=3)
+  pc <- prcomp(scalemat, scale. = F, rank. = 10)
   
   df <- data.frame(meta[ samples, ], pc$x)
-  p <- ggplot(df[, samples], aes(x=PC1, y=PC2, colour=brew.method)) + 
+  p <- ggplot(df, aes(x=PC1, y=PC2, colour=brew.method)) + 
     geom_text(aes(label = replicate)) + 
     #geom_point() + 
     theme_bw() + 
@@ -66,9 +64,11 @@ brew.cluster <- function(logtr = T, ...) {
 }
 brew.cluster(type="unit")
 
+#--------------------------------------------------------------------------------------------------
+
 # Total usable signal ----
 
-#Get total usable signal of the selected coffees
+# Get total usable signal of the selected coffees
 ints <- ft %>% select(ends_with("(raw)")) %>% t
 ints.filt <- ints[meta$selected == 1, ]
 totalints <- rowSums(ints.filt)
@@ -89,7 +89,7 @@ t.test(totalints$totalint ~ totalints$brew.method,
 # Feature counts ----
 brew <- bind_cols(meta, data.frame(ints))
 
-#find number of features present in X coffees
+# find number of features present in X coffees
 brew.rep1 <- brew %>% filter(replicate == 1) %>% select(X1:ncol(brew))
 nfeatures <- colSums(brew.rep1 > 1)
 
