@@ -1,17 +1,17 @@
 # Exploratory analysis of coffee brews. Metadata needs to be in feature table order
 # \\inti\BMA\Coffee Project\NCI\Sample lists\Masked Batch List of coffee samples_data files.xlsx
 
+library(tidyverse)
+cofints <- read_csv("Brew PT Feb 2015.csv", skip=8)
+brews   <- read_csv("Brew meta pt order march.csv")
+
 # Function to prep data and do PCA with log and/or scaling. Also returns table of PC scores.
-brew.explore <- function(logtr = T, ...) {
-  
-  library(tidyverse)
+brew.pca <- function(ft, meta, logtr = T, ...) {
+ 
+  library(dplyr) 
   library(MetabolAnalyze)
-  library(sparcl)
-  
-  ft <- read_csv("Brew PT Feb 2015.csv", skip=8)
+
   ints <- ft %>% select(ends_with("(raw)")) %>% t
-  
-  meta <- read_csv("Brew meta pt order march.csv")
   meta$replicate <- as.factor(meta$replicate)
   
   #write.csv(ints, "Peak table brew study.csv")
@@ -26,45 +26,33 @@ brew.explore <- function(logtr = T, ...) {
   #remove zero variance columns
   ifelse(apply(mat, 2, var) == 0, mat <- mat[, apply(mat, 2, var) != 0], mat)
   
-  #log transform and scale
-  if(logtr == T) logmat <- log2(mat) else logmat <- mat 
+  #log transform, scale, PCA
+  mat <- if(logtr == T) log2(mat) else mat
   scalemat <- scaling(mat, ...)
-  
-  #calculate PCA and plot scores
   pc <- prcomp(scalemat, scale. = F, rank. = 10)
   
-  df <- data.frame(meta[ samples, ], pc$x)
-  p <- ggplot(df, aes(x=PC1, y=PC2, colour=brew.method)) + 
-    geom_text(aes(label = replicate)) + 
-    #geom_point() + 
-    theme_bw() + 
-    geom_hline(yintercept = 0, colour="grey") + 
-    geom_vline(xintercept = 0, colour="grey")
-  print(p)
-  
-  df2 <- df %>% select(replicate, PC1:PC3) %>% arrange(replicate)
-  return(data.frame(df2))
+  df <- data.frame(meta[ samples, ], pc$x) #%>%
+    #select(replicate, PC1:PC3) %>% arrange(replicate)
   
 }
-output <- brew.explore(logtr = T, type = "unit")
+output <- brew.pca(cofints, brews, logtr = T, type = "pareto")
 
-# Function to perform hierarchical clustering
-brew.cluster <- function(logtr = T, ...) {
+ggplot(output, aes(x=PC1, y=PC2, colour=brew.method)) + #geom_point() + 
+  geom_text(aes(label = replicate)) + 
+  theme_bw() + 
+  geom_hline(yintercept = 0, colour="grey") + 
+  geom_vline(xintercept = 0, colour="grey")
 
-  mat <- ft %>% select(ends_with("(raw)")) %>% t
-  
-  #log transform and scale
-  if(logtr == T) mat <- log2(mat) else mat
-  scalemat <- scaling(mat, ...)
-  
-  hh1 <- hclust(dist(scalemat))
-  brew_method <- as.numeric(factor(meta$brew.method))
-  ColorDendrogram(hh1, y=brew_method, branchlength=38, labels=meta$brew.method)
-  
-}
-brew.cluster(type="unit")
 
-#--------------------------------------------------------------------------------------------------
+# Dendrogram (to replace with circular dendrogram)
+mat <- cofints %>% select(ends_with("(raw)")) %>% t %>% log2
+  
+#log transform and scale
+scalemat <- scaling(mat, type = "pareto")
+hh1 <- hclust(dist(scalemat))
+brew_method <- as.numeric(factor(brews$brew.method))
+ColorDendrogram(hh1, y=brew_method, branchlength=38, labels=brews$brew.method)
+
 
 # Total usable signal ----
 

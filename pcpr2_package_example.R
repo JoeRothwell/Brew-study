@@ -7,10 +7,12 @@ install_github("JoeRothwell/pcpr2")
 
 library(pcpr2)
 output <- runPCPR2(transcripts, Y_metadata)
-plotProp(output)
+plot(output)
 
-# Run PCPR2_coffee.R lines 11-38
-output.cof <- runPCPR2(X_DataMatrixScaled, Z_InterestFactors)
-output.cof
+# Run PCPR2_coffee.R lines 7-38
+pcpr2.coffee <- runPCPR2(X_DataMatrixScaled, Z_InterestFactors)
+plot(pcpr2.coffee)
+summary(pcpr2.coffee)
 
-plotProp(output.cof)
+# plotProp is now deprecated
+plotProp(pcpr2.coffee)
